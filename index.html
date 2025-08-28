@@ -127,6 +127,22 @@
         
         <div class="error" id="error"></div>
         
+        <div style="margin: 30px 0; padding: 20px; border-top: 1px solid #ddd;">
+            <h3 style="margin-top: 0; color: #333;">Or paste text directly:</h3>
+            <textarea 
+                id="text-input" 
+                placeholder="Paste your text content here..."
+                style="width: 100%; height: 200px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; font-family: inherit; font-size: 14px; resize: vertical;"
+            ></textarea>
+            <button 
+                id="text-submit" 
+                class="upload-btn" 
+                style="margin-top: 10px;"
+            >
+                Read Text
+            </button>
+        </div>
+        
         <div class="reader-content" id="reader-content"></div>
     </div>
 
@@ -136,6 +152,8 @@
     <script>
         const uploadArea = document.getElementById('upload-area');
         const fileInput = document.getElementById('file-input');
+        const textInput = document.getElementById('text-input');
+        const textSubmit = document.getElementById('text-submit');
         const loading = document.getElementById('loading');
         const error = document.getElementById('error');
         const readerContent = document.getElementById('reader-content');
@@ -158,8 +176,9 @@
                 sessionStorage.removeItem('readerContent');
                 sessionStorage.removeItem('pageTitle');
                 
-                // Hide upload area and show content
+                // Hide upload area and text input area, show content
                 uploadArea.style.display = 'none';
+                document.querySelector('[style*="border-top"]').style.display = 'none';
                 readerContent.innerHTML = savedContent;
                 readerContent.style.display = 'block';
                 
@@ -178,8 +197,10 @@
                 `;
                 backButton.addEventListener('click', () => {
                     uploadArea.style.display = 'block';
+                    document.querySelector('[style*="border-top"]').style.display = 'block'; // Show text input area
                     readerContent.style.display = 'none';
                     fileInput.value = ''; // Clear file input
+                    textInput.value = ''; // Clear text input
                 });
                 readerContent.insertBefore(backButton, readerContent.firstChild);
             }
@@ -208,6 +229,18 @@
             if (e.target.files.length > 0) {
                 const files = Array.from(e.target.files);
                 handleFiles(files);
+            }
+        });
+
+        // Text input handler
+        textSubmit.addEventListener('click', () => {
+            const text = textInput.value.trim();
+            if (text) {
+                const textDocument = {
+                    name: 'Pasted Text',
+                    text: text
+                };
+                displayDocuments([textDocument]);
             }
         });
 
