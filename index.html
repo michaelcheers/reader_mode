@@ -146,9 +146,17 @@
         // Check for content in sessionStorage on page load
         window.addEventListener('DOMContentLoaded', () => {
             const savedContent = sessionStorage.getItem('readerContent');
+            const savedTitle = sessionStorage.getItem('pageTitle');
+            
             if (savedContent) {
+                // Update page title
+                if (savedTitle) {
+                    document.title = savedTitle;
+                }
+                
                 // Clear sessionStorage
                 sessionStorage.removeItem('readerContent');
+                sessionStorage.removeItem('pageTitle');
                 
                 // Hide upload area and show content
                 uploadArea.style.display = 'none';
@@ -263,10 +271,10 @@
         }
 
         function displayDocuments(documents) {
-            let html = '';
+            let contentHtml = '';
             
             documents.forEach((doc, index) => {
-                html += `
+                contentHtml += `
                     <div style="margin-bottom: 40px; ${index > 0 ? 'border-top: 2px solid #eee; padding-top: 40px;' : ''}">
                         <h2 style="color: #333; font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
                             📄 ${doc.name}
@@ -278,8 +286,14 @@
                 `;
             });
             
-            // Save content to sessionStorage and reload to trigger Brave's speedreader
-            sessionStorage.setItem('readerContent', html);
+            // Create title from document names
+            const pageTitle = documents.length === 1 ? 
+                documents[0].name : 
+                `${documents.length} Documents`;
+            
+            // Save content and title to sessionStorage and reload
+            sessionStorage.setItem('readerContent', contentHtml);
+            sessionStorage.setItem('pageTitle', pageTitle);
             location.reload();
         }
 
