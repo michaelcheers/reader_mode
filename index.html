@@ -103,17 +103,19 @@
     </style>
 
     <script>
-        // Kick off IndexedDB read immediately in head
-        const readerDataPromise = (async function() {
+        // Start IndexedDB load immediately in head
+        let readerDataPromise = (async function() {
             function openDB() {
                 return new Promise((resolve, reject) => {
-                    const req = indexedDB.open('ReaderDB', 1);
-                    req.onupgradeneeded = (e) => {
+                    const request = indexedDB.open('ReaderDB', 1);
+                    request.onupgradeneeded = (e) => {
                         const db = e.target.result;
-                        if (!db.objectStoreNames.contains('store')) db.createObjectStore('store');
+                        if (!db.objectStoreNames.contains('store')) {
+                            db.createObjectStore('store');
+                        }
                     };
-                    req.onsuccess = (e) => resolve(e.target.result);
-                    req.onerror = () => reject(req.error);
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = () => reject(request.error);
                 });
             }
 
@@ -139,59 +141,8 @@
 
             const content = await idbGet('readerContent');
             const title = await idbGet('pageTitle');
-            return { content, title, db, clear: idbClear };
+            return { content, title, db, idbClear };
         })();
-
-        // Hydrate immediately once DB data + DOM nodes are available
-        readerDataPromise.then(async ({ content, title, clear }) => {
-            if (!content) return;
-
-            function whenReady(selector) {
-                return new Promise(resolve => {
-                    function check() {
-                        if (document.querySelector(selector)) resolve();
-                        else requestAnimationFrame(check);
-                    }
-                    check();
-                });
-            }
-
-            await whenReady('#reader-content');
-
-            if (title) document.title = title;
-            await clear();
-
-            const uploadArea = document.getElementById('upload-area');
-            const readerContent = document.getElementById('reader-content');
-            const textInput = document.getElementById('text-input');
-            const fileInput = document.getElementById('file-input');
-
-            uploadArea.style.display = 'none';
-            document.querySelector('[style*="border-top"]').style.display = 'none';
-            readerContent.innerHTML = content;
-            readerContent.style.display = 'block';
-
-            const backButton = document.createElement('button');
-            backButton.textContent = '← Upload More Documents';
-            backButton.style.cssText = `
-                background: #6c757d;
-                color: white;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 14px;
-                margin-bottom: 20px;
-            `;
-            backButton.addEventListener('click', () => {
-                uploadArea.style.display = 'block';
-                document.querySelector('[style*="border-top"]').style.display = 'block';
-                readerContent.style.display = 'none';
-                fileInput.value = '';
-                textInput.value = '';
-            });
-            readerContent.insertBefore(backButton, readerContent.firstChild);
-        });
     </script>
 </head>
 <body>
@@ -252,6 +203,46 @@
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+        // On DOMContentLoaded, use data fetched earlier
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { content, title, idbClear } = await readerDataPromise;
+
+            if (content) {
+                if (title) {
+                    document.title = title;
+                }
+                
+                await idbClear();
+                
+                uploadArea.style.display = 'none';
+                document.querySelector('[style*="border-top"]').style.display = 'none';
+                readerContent.innerHTML = content;
+                readerContent.style.display = 'block';
+                
+                const backButton = document.createElement('button');
+                backButton.textContent = '← Upload More Documents';
+                backButton.style.cssText = `
+                    background: #6c757d;
+                    color: white;
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    margin-bottom: 20px;
+                `;
+                backButton.addEventListener('click', () => {
+                    uploadArea.style.display = 'block';
+                    document.querySelector('[style*="border-top"]').style.display = 'block'; // Show text input area
+                    readerContent.style.display = 'none';
+                    fileInput.value = ''; // Clear file input
+                    textInput.value = ''; // Clear text input
+                });
+                readerContent.insertBefore(backButton, readerContent.firstChild);
+            }
+        });
+
+        // Drag and drop handlers
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
@@ -367,10 +358,10 @@
             const pageTitle = documents.length === 1 ? 
                 documents[0].name : 
                 `${documents.length} Documents`;
+            
+            const db = await (await readerDataPromise).db;
 
-            const { db } = await readerDataPromise;
-
-            function idbPut(key, value) {
+            async function idbPut(key, value) {
                 return new Promise((resolve, reject) => {
                     const tx = db.transaction('store', 'readwrite');
                     const req = tx.objectStore('store').put(value, key);
